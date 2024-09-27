@@ -146,8 +146,8 @@ class UltravoxSession(patched_event_emitter.PatchedAsyncIOEventEmitter):
       - "transcripts": emitted when a transcript is added or updated.
       - "experimental_message": emitted when an experimental message is received.
            The message is included as the first argument to the event handler.
-      - "user_muted": emitted when the user's microphone is muted or unmuted.
-      - "agent_muted": emitted when the agent is muted or unmuted.
+      - "mic_muted": emitted when the user's microphone is muted or unmuted.
+      - "speaker_muted": emitted when the user's speaker (i.e. output audio from the agent) is muted or unmuted.
     """
 
     def __init__(self, experimental_messages: set[str] | None = None) -> None:
@@ -171,12 +171,38 @@ class UltravoxSession(patched_event_emitter.PatchedAsyncIOEventEmitter):
         return self._transcripts.copy()
 
     @property
-    def user_muted(self):
+    def mic_muted(self) -> bool:
+        """Indicates whether the microphone is muted."""
         return not self._source_adapter.enabled if self._source_adapter else False
 
+    @mic_muted.setter
+    def mic_muted(self, mute: bool) -> None:
+        """Sets the mute state of the user's microphone."""
+        if self.mic_muted != mute:
+            if self._source_adapter:
+                self._source_adapter.enabled = not mute
+            self.emit("mic_muted", mute)
+
+    def toggle_mic_muted(self) -> None:
+        """Toggles the mute state of the user's microphone."""
+        self.mic_muted = not self.mic_muted
+
     @property
-    def agent_muted(self):
+    def speaker_muted(self) -> bool:
+        """Indicates whether the user's speaker (i.e. output audio from the agent) is muted."""
         return not self._sink_adapter.enabled if self._sink_adapter else False
+
+    @speaker_muted.setter
+    def speaker_muted(self, mute: bool) -> None:
+        """Sets the mute state of the user's speaker (i.e. output audio from the agent)."""
+        if self.speaker_muted != mute:
+            if self._sink_adapter:
+                self._sink_adapter.enabled = not mute
+            self.emit("speaker_muted", mute)
+
+    def toggle_speaker_muted(self) -> None:
+        """Toggles the mute state of the user's speaker (i.e. output audio from the agent)."""
+        self.speaker_muted = not self.speaker_muted
 
     async def join_call(
         self,
@@ -214,26 +240,6 @@ class UltravoxSession(patched_event_emitter.PatchedAsyncIOEventEmitter):
                 f"Cannot send text while not connected. Current status is {self.status}"
             )
         await self._send_data({"type": "input_text_message", "text": text})
-
-    def mute(self, roles: set[Role]):
-        """Mutes the user, the agent, or both. If a role is already muted, this method
-        does nothing for that role."""
-        if "user" in roles and self._source_adapter and not self.user_muted:
-            self._source_adapter.enabled = False
-            self.emit("user_muted")
-        elif "agent" in roles and self._sink_adapter and not self.agent_muted:
-            self._sink_adapter.enabled = False
-            self.emit("agent_muted")
-
-    def unmute(self, roles: set[Role]):
-        """Unmutes the user, the agent, or both. If a role is not muted, this method
-        does nothing for that role."""
-        if "user" in roles and self._source_adapter and self.user_muted:
-            self._source_adapter.enabled = True
-            self.emit("user_muted")
-        elif "agent" in roles and self._sink_adapter and self.agent_muted:
-            self._sink_adapter.enabled = True
-            self.emit("agent_muted")
 
     async def _socket_receive(self):
         assert self._socket
