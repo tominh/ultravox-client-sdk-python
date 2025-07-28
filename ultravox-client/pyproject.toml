@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "ultravox-client"
-version = "0.0.9"
+version = "0.0.10"
 packages = [
     { include = "ultravox_client", from = "." },
 ]
@@ -16,7 +16,7 @@ keywords = ["ultravox", "audio", "realtime", "artificial intelligence"]
 [tool.poetry.dependencies]
 python = "^3.11"
 livekit = "^0.18.1"
-websockets = "^14.1"
+websockets = ">=14.1"
 pyee = "^11.0.1"
 sounddevice = "^0.5.1"
 numpy = "^2.1.3"
